@@ -113,7 +113,7 @@ POLLER_MAX_BACKOFF_MS=30000
 ## Deployment sketch
 
 ```bash
-npm ci
+npm install
 npm run build
 sudo useradd --system --home /var/lib/wechat-brain-capture --shell /usr/sbin/nologin wechat-brain
 sudo mkdir -p /var/lib/wechat-brain-capture
