@@ -1,19 +1,19 @@
 # kos / wechat-brain-capture
 
-`kos` is a minimal WeChat personal bot daemon.  It uses the iLink Bot API
-(`https://ilinkai.weixin.qq.com/ilink/bot/*`) to scan a QR code, receive
-private text messages, parse `k content` / `记 content` commands, and
-append Markdown lines to a local file.
+`kos` is a minimal WeChat personal brain-capture daemon.  Every text message
+you send from WeChat is automatically appended as a Markdown line to a local
+`log.md` — no prefix needed, just talk.
 
+It uses the iLink Bot API (`https://ilinkai.weixin.qq.com/ilink/bot/*`), the
+same protocol behind the official `@tencent-weixin/openclaw-weixin` package.
 No OpenClaw runtime, no SDK gateway, no LLM calls, no database.
 
 ## Quick start
 
 ```bash
 cp .env.example .env
-# 1. Set WEIXIN_BASE_URL (default https://ilinkai.weixin.qq.com)
-# 2. Set BRAIN_LOG_PATH and ALLOWED_SENDERS
-# 3. Leave WEIXIN_BOT_TOKEN empty to trigger QR login
+# 1. Set BRAIN_LOG_PATH and ALLOWED_SENDERS (leave WEIXIN_BOT_TOKEN empty)
+# 2. WEIXIN_BASE_URL defaults to https://ilinkai.weixin.qq.com
 
 npm install
 npm run build
@@ -22,25 +22,21 @@ npm start
 
 On first run (no saved bot token) the daemon:
 
-1. Calls `GET /ilink/bot/get_bot_qrcode?bot_type=3`
-2. Saves the QR image to `QR_OUTPUT_PATH` (default `/tmp/kos-qr.png`)
-3. Polls `GET /ilink/bot/get_qrcode_status?qrcode=...` every 2 s
-4. On confirmed → saves `botToken`, `botId`, `userId`, `baseUrl` to `STATE_PATH`
-5. Starts long‑polling `POST /ilink/bot/getupdates`
+1. Fetches a QR code from `GET /ilink/bot/get_bot_qrcode?bot_type=3`
+2. **Displays the QR code directly in the terminal** (Unicode blocks)
+3. Also saves a PNG backup to `QR_OUTPUT_PATH` (default `/tmp/kos-qr.png`)
+4. Polls `GET /ilink/bot/get_qrcode_status?qrcode=...` every 2 s
+5. On confirmed → persists `botToken`, `botId`, `userId`, `baseUrl` to `STATE_PATH`
+6. Starts long‑polling `POST /ilink/bot/getupdates`
 
-## Commands
-
-```text
-k content
-记 content
-help
-```
-
-Reply format:
+From then on, **any text message** you send in the private chat is captured:
 
 ```markdown
-- YYYY-MM-DD HH:mm:ss [wechat]: content
+- YYYY-MM-DD HH:mm:ss [wechat]: your message here
 ```
+
+To discover your WeChat user ID for `ALLOWED_SENDERS`, check the debug logs after
+sending your first message — the `senderId` field is your `xxx@im.wechat` ID.
 
 ## Configuration
 
@@ -70,7 +66,7 @@ POLLER_MAX_BACKOFF_MS=30000
 ```
 src/
   adapter/       InboundMsg → IncomingTextMessage normalization
-  capture/       Command parser, handler, formatter, file storage
+  capture/       Parser, handler, formatter, file storage
   transport/     WeixinClient (QR login + getUpdates + sendMessage),
                  Poller, auth loader, JSON state store
   utils/         Logger, timezone, text normalization, X-WECHAT-UIN
@@ -93,6 +89,16 @@ sudo systemctl enable --now wechat-brain-capture
 
 - Only `ALLOWED_SENDERS` can write.
 - Group chats are ignored (`to_user_id` matches `@im.room` or starts with `@@`).
-- User messages cannot choose paths.
-- Only `BRAIN_LOG_PATH` is appended to.
+- User messages cannot choose paths; only `BRAIN_LOG_PATH` is appended to.
 - No shell execution, no `eval`, no LLM routing.
+
+## Acknowledgements
+
+The iLink Bot API protocol was reverse‑engineered and documented by the
+open‑source community.  This project's transport layer is informed by:
+
+- [`@tencent-weixin/openclaw-weixin`](https://www.npmjs.com/package/@tencent-weixin/openclaw-weixin) — official npm package (TypeScript source)
+- [`hao-ji-xing/openclaw-weixin`](https://github.com/hao-ji-xing/openclaw-weixin) — community protocol analysis and documentation
+- [`hao-ji-xing/cc-weixin`](https://github.com/hao-ji-xing/cc-weixin) — standalone iLink bot reference implementation
+
+微信 iLink Bot API 是腾讯官方产品，受《微信 ClawBot 功能使用条款》约束。
