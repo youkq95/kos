@@ -210,6 +210,7 @@ test("sendMessage posts correct body structure", async () => {
 
   assert.equal(baseInfo?.channel_version, "kos-weixin/0.1");
   assert.equal(msg?.from_user_id, "");
+  assert.ok(typeof msg?.client_id === "string" && msg.client_id.length > 0, "client_id should be a non-empty UUID");
   assert.equal(msg?.to_user_id, "user123@im.wechat");
   assert.equal(msg?.context_token, "ctx-456");
   assert.equal(msg?.message_type, 2);

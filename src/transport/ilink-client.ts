@@ -7,6 +7,7 @@ import type {
   WeixinAuthState
 } from "./ilink-types.js";
 import { generateXWechatUin } from "../utils/weixin.js";
+import { randomUUID } from "node:crypto";
 
 export type WeixinClientConfig = {
   baseUrl: string;
@@ -144,6 +145,7 @@ export class WeixinClient {
       msg: {
         from_user_id: "",
         to_user_id: params.toUserId,
+        client_id: randomUUID(),
         message_type: 2,
         message_state: 2,
         context_token: params.contextToken,

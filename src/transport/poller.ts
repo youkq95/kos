@@ -100,12 +100,15 @@ export class Poller {
       return;
     }
 
+    this.options.logger.debug("sending reply", { senderId: message.senderId, text: result.text });
+
     try {
       await this.options.client.sendMessage({
         toUserId: message.senderId,
         contextToken: message.contextToken,
         text: result.text
       });
+      this.options.logger.debug("reply sent", { senderId: message.senderId });
     } catch (error) {
       this.options.logger.error("reply failed", {
         senderId: message.senderId,
