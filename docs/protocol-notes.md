@@ -1,79 +1,128 @@
-# iLink / ClawBot protocol notes
+# iLink Bot API protocol notes
 
-This file tracks the minimal protocol assumptions used by `kos`.
+All endpoints are under `WEIXIN_BASE_URL` (default `https://ilinkai.weixin.qq.com`).
 
-## Scope
+## Endpoints
 
-The daemon only needs:
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| GET | `/ilink/bot/get_bot_qrcode?bot_type=3` | none | Fetch QR code image + login token |
+| GET | `/ilink/bot/get_qrcode_status?qrcode=...` | none | Poll scan/confirm status |
+| POST | `/ilink/bot/getupdates` | Bearer | Long-poll new messages |
+| POST | `/ilink/bot/sendmessage` | Bearer | Send a text reply |
 
-1. Saved credential loading.
-2. Long-polling `getUpdates`.
-3. Sending a private text message reply.
-4. Persisting the server cursor/buffer.
+## Auth headers (POST only)
 
-No OpenClaw runtime, skill runtime, MCP, LLM, multi-agent routing, media handling, or shell execution is required.
+```
+Content-Type: application/json
+AuthorizationType: ilink_bot_token
+X-WECHAT-UIN: <base64(random uint32 string)>
+Authorization: Bearer <bot_token>
+```
 
-## Current implementation contract
+`X-WECHAT-UIN` is generated once on first run and persisted in `STATE_PATH`.
 
-The concrete gateway URL and endpoint paths are config-driven:
+## getBotQRCode
 
-- `ILINK_BASE_URL`
-- `ILINK_GET_UPDATES_PATH`
-- `ILINK_SEND_MESSAGE_PATH`
-- `ILINK_AUTH_TOKEN`
-- `ILINK_UIN`
+```
+GET /ilink/bot/get_bot_qrcode?bot_type=3
+→ { qrcode: "token", qrcode_img_content: "base64..." }
+```
 
-`ILinkClient.getUpdates(cursor)` currently sends JSON including the available credential/cursor fields:
+The client also accepts `qr_code` / `qrCode` and `qrcode_img` / `qr_img_base64` aliases.
+
+## getQRCodeStatus
+
+```
+GET /ilink/bot/get_qrcode_status?qrcode=<token>
+→ { status: "waiting" | "scanned" | "confirmed" | "expired" }
+```
+
+On `status: "confirmed"` the response includes:
 
 ```json
 {
-  "token": "...",
-  "uin": "...",
-  "getUpdatesBuf": "..."
+  "status": "confirmed",
+  "ret": 0,
+  "bot_token": "...",
+  "baseurl": "https://...",
+  "ilink_bot_id": "...",
+  "ilink_user_id": "...",
+  "route_tag": "..."
 }
 ```
 
-The response normalizer accepts common response variants:
+If `ret != 0` the status is treated as `waiting` regardless of the `status` field.
 
-- `updates`, `items`, `messages`, or `data.updates` for message arrays.
-- `cursor`, `nextCursor`, `getUpdatesBuf`, `buf`, or `data.getUpdatesBuf` for continuation state.
-- `token` / `uin` at the top level or under `data` for refreshed auth state.
+Numeric status values `0/1/2/-1` are also accepted.
 
-`sendTextMessage` sends JSON including:
+## getUpdates
 
 ```json
+POST /ilink/bot/getupdates
 {
-  "token": "...",
-  "uin": "...",
-  "toUserId": "...",
-  "contextToken": "...",
-  "text": "...",
-  "content": "...",
-  "type": "text"
+  "get_updates_buf": "",
+  "base_info": { "channel_version": "kos-weixin/0.1" }
+}
+
+→ {
+  "ret": 0,
+  "msgs": [
+    {
+      "from_user_id": "xxx@im.wechat",
+      "to_user_id": "xxx@im.bot",
+      "message_type": 1,
+      "message_state": 2,
+      "context_token": "...",
+      "item_list": [
+        { "type": 1, "text_item": { "text": "k hello" } }
+      ]
+    }
+  ],
+  "get_updates_buf": "...",
+  "longpolling_timeout_ms": 35000
 }
 ```
 
-## Adapter assumptions
+- `get_updates_buf` is persisted to avoid message replay.
+- `ret != 0` is treated as an error.
+- Non‑text messages (`message_type != 1`) are ignored by the adapter.
 
-`normalizeWechatTextMessage` accepts nested and flat message shapes and extracts:
+## sendMessage
 
-- message ID: `messageId`, `msgId`, or `id`
-- sender: `senderId`, `fromUserId`, `fromUserName`, `from`, `userId`, or `wxid`
-- chat: `chatId`, `roomId`, `conversationId`, or `talker`
-- text: `text`, `content`, or `message`
-- timestamp: `timestamp`, `createTime`, or `time`
-- context token: `contextToken` or `ctxToken`
+```json
+POST /ilink/bot/sendmessage
+{
+  "msg": {
+    "to_user_id": "<inbound.from_user_id>",
+    "message_type": 2,
+    "message_state": 2,
+    "context_token": "<inbound.context_token>",
+    "item_list": [
+      { "type": 1, "text_item": { "text": "已记录。" } }
+    ]
+  },
+  "base_info": { "channel_version": "kos-weixin/0.1" }
+}
+```
 
-## Items to verify with a live gateway
+`context_token` is **required** — the daemon refuses to reply without it.
 
-- Exact login flow and credential refresh behavior.
-- Whether `getUpdatesBuf` is required in the request body, header, query string, or another field.
-- Whether replies require `contextToken`, chat ID, sender ID, or a conversation ID.
-- The final private-chat and group-chat markers.
-- Rate limits and long-poll timeout recommendations.
+## Login flow
 
-## Integration acceptance checklist
+```
+no botToken
+  → GET get_bot_qrcode
+  → save QR image to QR_OUTPUT_PATH
+  → poll get_qrcode_status every LOGIN_POLL_INTERVAL_MS
+  → confirmed → persist credentials → start polling
+  → expired  → re‑request QR
+  → SIGTERM  → clean exit
+```
 
-- Send `ping`; daemon logs normalized incoming text; reply path can send `pong`.
-- Send `k test`; log file appends one line and WeChat receives `已记录。`.
-- Restart daemon with existing state file; polling resumes from saved cursor.
+## Items still to verify with a live gateway
+
+- Exact rate limits and long‑poll timeout values.
+- Whether `longpolling_timeout_ms` affects how long `getupdates` blocks.
+- Whether QR codes truly expire after ~2 minutes.
+- The exact group‑chat detection mechanism (currently `to_user_id` contains `@im.room`).

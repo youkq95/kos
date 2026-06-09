@@ -1,8 +1,9 @@
 import { loadConfig, loadDotEnv } from "./config.js";
 import { handleIncomingText } from "./capture/handler.js";
 import { MarkdownFileCaptureStorage } from "./capture/storage.js";
-import { ILinkClient } from "./transport/ilink-client.js";
+import { WeixinClient } from "./transport/ilink-client.js";
 import { loadInitialAuthState, type LoadInitialAuthOptions } from "./transport/auth.js";
+import { runWeixinLoginFlow } from "./transport/login.js";
 import { Poller, type PollerOptions } from "./transport/poller.js";
 import { JsonStateStore } from "./transport/state-store.js";
 import { Logger } from "./utils/logger.js";
@@ -14,22 +15,65 @@ async function main(): Promise<void> {
   const logger = new Logger(config.logLevel);
   const stateStore = new JsonStateStore(config.statePath);
 
-  const authOptions: LoadInitialAuthOptions = {};
-  if (config.ilink.authToken) {
-    authOptions.envToken = config.ilink.authToken;
-  }
-  if (config.ilink.uin) {
-    authOptions.envUin = config.ilink.uin;
-  }
+  // ── Load / acquire credentials ──────────────────────────────────
 
-  const auth = await loadInitialAuthState(stateStore, authOptions);
+  const authOptions: LoadInitialAuthOptions = {};
+  if (config.weixin.botToken) authOptions.envBotToken = config.weixin.botToken;
+  if (config.weixin.botId) authOptions.envBotId = config.weixin.botId;
+  if (config.weixin.userId) authOptions.envUserId = config.weixin.userId;
+  if (config.weixin.routeTag) authOptions.envRouteTag = config.weixin.routeTag;
+
+  let auth = await loadInitialAuthState(stateStore, authOptions);
   await stateStore.patch(auth);
 
-  const client = new ILinkClient({
-    baseUrl: config.ilink.baseUrl,
-    getUpdatesPath: config.ilink.getUpdatesPath,
-    sendMessagePath: config.ilink.sendMessagePath,
-    requestTimeoutMs: config.ilink.requestTimeoutMs,
+  if (!auth.botToken) {
+    logger.info("no saved botToken, starting Weixin QR login flow");
+
+    const abortController = new AbortController();
+
+    const onShutdown = (): void => {
+      logger.info("shutdown signal received during login");
+      abortController.abort();
+    };
+
+    process.once("SIGINT", onShutdown);
+    process.once("SIGTERM", onShutdown);
+
+    try {
+      const loginClient = new WeixinClient({
+        baseUrl: config.weixin.baseUrl,
+        requestTimeoutMs: config.weixin.requestTimeoutMs,
+        auth: {}
+      });
+
+      auth = await runWeixinLoginFlow({
+        client: loginClient,
+        qrOutputPath: config.login.qrOutputPath,
+        pollIntervalMs: config.login.pollIntervalMs,
+        signal: abortController.signal,
+        logger
+      });
+
+      await stateStore.write(auth);
+      logger.info("credentials saved after login");
+    } catch (error) {
+      if (abortController.signal.aborted) {
+        logger.info("login aborted by signal");
+        return;
+      }
+
+      throw error;
+    } finally {
+      process.removeListener("SIGINT", onShutdown);
+      process.removeListener("SIGTERM", onShutdown);
+    }
+  }
+
+  // ── Start polling loop ──────────────────────────────────────────
+
+  const client = new WeixinClient({
+    baseUrl: config.weixin.baseUrl,
+    requestTimeoutMs: config.weixin.requestTimeoutMs,
     auth
   });
 

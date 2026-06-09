@@ -1,28 +1,52 @@
-export type ILinkAuthState = {
-  token?: string;
-  uin?: string;
+// Exact types for the Weixin iLink Bot API.
+// Endpoints: https://ilinkai.weixin.qq.com/ilink/bot/*
+
+export type WeixinAuthState = {
+  botToken?: string;
+  botId?: string;
+  userId?: string;
+  baseUrl?: string;
+  routeTag?: string;
   getUpdatesBuf?: string;
   updatedAt?: string;
 };
 
-export type ILinkUpdate = Record<string, unknown>;
-
-export type GetUpdatesResult = {
-  updates: ILinkUpdate[];
-  cursor?: string;
-  auth?: Partial<ILinkAuthState>;
+export type QRCodeResult = {
+  qrcode: string;
+  qrcodeImgBase64: string;
 };
 
-export type SendTextMessageParams = {
+export type QRCodeStatus = "waiting" | "scanned" | "confirmed" | "expired" | "cancelled";
+
+export type QRCodeStatusResult = {
+  status: QRCodeStatus;
+  botToken?: string;
+  baseUrl?: string;
+  botId?: string;
+  userId?: string;
+  routeTag?: string;
+};
+
+export type InboundMsgItem = {
+  type: number;
+  textItem?: {
+    text: string;
+  };
+};
+
+export type InboundMsg = {
+  fromUserId: string;
   toUserId: string;
+  messageType: number;
+  messageState: number;
   contextToken?: string;
-  text: string;
+  itemList: InboundMsgItem[];
+  raw: unknown;
 };
 
-export type ILinkClientConfig = {
-  baseUrl: string;
-  getUpdatesPath: string;
-  sendMessagePath: string;
-  requestTimeoutMs: number;
-  auth: ILinkAuthState;
+export type GetUpdatesResponse = {
+  ret: number;
+  msgs: InboundMsg[];
+  getUpdatesBuf: string;
+  longpollingTimeoutMs?: number;
 };

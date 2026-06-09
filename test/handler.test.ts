@@ -22,7 +22,7 @@ test("writes capture from whitelisted sender", async () => {
     {
       senderId: "wechat-user-id-1",
       chatId: "wechat-user-id-1",
-      text: "k hello",
+      text: "hello",
       timestamp: new Date("2026-06-09T08:20:31.000Z")
     },
     { allowedSenders, storage }
@@ -39,7 +39,7 @@ test("ignores non-whitelisted sender", async () => {
     {
       senderId: "unknown",
       chatId: "unknown",
-      text: "k hello",
+      text: "hello",
       timestamp: new Date()
     },
     { allowedSenders, storage }
@@ -55,7 +55,7 @@ test("ignores group chat by default", async () => {
     {
       senderId: "wechat-user-id-1",
       chatId: "group-chatroom",
-      text: "k hello",
+      text: "hello",
       timestamp: new Date(),
       isGroupChat: true
     },
@@ -72,7 +72,7 @@ test("replies on empty capture without writing", async () => {
     {
       senderId: "wechat-user-id-1",
       chatId: "wechat-user-id-1",
-      text: "k",
+      text: "   ",
       timestamp: new Date()
     },
     { allowedSenders, storage }

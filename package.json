@@ -12,11 +12,18 @@
     "lint": "tsc --noEmit -p tsconfig.json",
     "test": "npm run build && node --test dist/test/*.test.js",
     "start": "node dist/src/index.js",
-    "dev": "npm run build && node dist/src/index.js"
+    "dev": "npm run build && node dist/src/index.js",
+    "probe": "npx tsx scripts/probe-gateway.ts",
+    "probe:qr": "npx tsx scripts/probe-gateway.ts qr",
+    "probe:check": "npx tsx scripts/probe-gateway.ts check",
+    "probe:updates": "npx tsx scripts/probe-gateway.ts updates"
   },
-  "dependencies": {},
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  },
   "devDependencies": {
     "@types/node": "^22.15.30",
+    "@types/qrcode": "^1.5.6",
     "typescript": "^5.8.3"
   }
 }

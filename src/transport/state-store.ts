@@ -1,6 +1,6 @@
 import { dirname, isAbsolute } from "node:path";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import type { ILinkAuthState } from "./ilink-types.js";
+import type { WeixinAuthState } from "./ilink-types.js";
 
 export class JsonStateStore {
   constructor(private readonly path: string) {
@@ -9,7 +9,7 @@ export class JsonStateStore {
     }
   }
 
-  async read(): Promise<ILinkAuthState> {
+  async read(): Promise<WeixinAuthState> {
     try {
       const raw = await readFile(this.path, "utf8");
       const parsed = JSON.parse(raw) as unknown;
@@ -28,7 +28,7 @@ export class JsonStateStore {
     }
   }
 
-  async write(state: ILinkAuthState): Promise<void> {
+  async write(state: WeixinAuthState): Promise<void> {
     await mkdir(dirname(this.path), { recursive: true });
     const finalState = {
       ...state,
@@ -39,7 +39,7 @@ export class JsonStateStore {
     await rename(tempPath, this.path);
   }
 
-  async patch(patch: Partial<ILinkAuthState>): Promise<ILinkAuthState> {
+  async patch(patch: Partial<WeixinAuthState>): Promise<WeixinAuthState> {
     const current = await this.read();
     const next = {
       ...current,
@@ -50,24 +50,16 @@ export class JsonStateStore {
   }
 }
 
-function sanitizeState(record: Record<string, unknown>): ILinkAuthState {
-  const state: ILinkAuthState = {};
+function sanitizeState(record: Record<string, unknown>): WeixinAuthState {
+  const state: WeixinAuthState = {};
 
-  if (typeof record.token === "string") {
-    state.token = record.token;
-  }
-
-  if (typeof record.uin === "string") {
-    state.uin = record.uin;
-  }
-
-  if (typeof record.getUpdatesBuf === "string") {
-    state.getUpdatesBuf = record.getUpdatesBuf;
-  }
-
-  if (typeof record.updatedAt === "string") {
-    state.updatedAt = record.updatedAt;
-  }
+  if (typeof record.botToken === "string") state.botToken = record.botToken;
+  if (typeof record.botId === "string") state.botId = record.botId;
+  if (typeof record.userId === "string") state.userId = record.userId;
+  if (typeof record.baseUrl === "string") state.baseUrl = record.baseUrl;
+  if (typeof record.routeTag === "string") state.routeTag = record.routeTag;
+  if (typeof record.getUpdatesBuf === "string") state.getUpdatesBuf = record.getUpdatesBuf;
+  if (typeof record.updatedAt === "string") state.updatedAt = record.updatedAt;
 
   return state;
 }

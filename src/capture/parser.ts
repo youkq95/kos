@@ -3,36 +3,20 @@ import { normalizeCaptureContent, normalizeCommandText } from "../utils/normaliz
 
 export function parseText(text: string): CaptureCommand {
   const trimmed = normalizeCommandText(text);
-  const lower = trimmed.toLowerCase();
 
+  // help command
+  const lower = trimmed.toLowerCase();
   if (lower === "help" || trimmed === "\u5e2e\u52a9") {
     return { type: "help" };
   }
 
-  const captureContent = extractCaptureContent(trimmed);
-  if (captureContent === undefined) {
-    return { type: "ignore" };
-  }
-
-  const normalized = normalizeCaptureContent(captureContent);
-  if (!normalized) {
+  // everything else is a capture — no k/记 prefix needed
+  if (!normalizeCaptureContent(trimmed)) {
     return { type: "empty" };
   }
 
   return {
     type: "capture",
-    content: normalized
+    content: normalizeCaptureContent(trimmed)
   };
-}
-
-function extractCaptureContent(text: string): string | undefined {
-  if (text === "k" || text.startsWith("k ") || text.startsWith("k\n") || text.startsWith("k\t")) {
-    return text.slice(1);
-  }
-
-  if (text === "\u8bb0" || text.startsWith("\u8bb0 ") || text.startsWith("\u8bb0\n") || text.startsWith("\u8bb0\t")) {
-    return text.slice(1);
-  }
-
-  return undefined;
 }

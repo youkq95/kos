@@ -10,13 +10,17 @@ export type AppConfig = {
   timeZone: string;
   statePath: string;
   logLevel: LogLevel;
-  ilink: {
+  weixin: {
     baseUrl: string;
-    getUpdatesPath: string;
-    sendMessagePath: string;
-    authToken?: string;
-    uin?: string;
+    botToken?: string;
+    botId?: string;
+    userId?: string;
+    routeTag?: string;
     requestTimeoutMs: number;
+  };
+  login: {
+    pollIntervalMs: number;
+    qrOutputPath: string;
   };
   poller: {
     minBackoffMs: number;
@@ -67,9 +71,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const timeZone = env.TIMEZONE || "Asia/Shanghai";
   assertValidTimeZone(timeZone);
 
-  const ilinkBaseUrl = required(env.ILINK_BASE_URL, "ILINK_BASE_URL");
-  const authToken = optionalNonEmpty(env.ILINK_AUTH_TOKEN);
-  const uin = optionalNonEmpty(env.ILINK_UIN);
+  const weixinBaseUrl = required(env.WEIXIN_BASE_URL, "WEIXIN_BASE_URL");
+  const botToken = optionalNonEmpty(env.WEIXIN_BOT_TOKEN);
+  const botId = optionalNonEmpty(env.WEIXIN_BOT_ID);
+  const userId = optionalNonEmpty(env.WEIXIN_USER_ID);
+  const routeTag = optionalNonEmpty(env.WEIXIN_ROUTE_TAG);
 
   return {
     brainLogPath,
@@ -77,13 +83,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     timeZone,
     statePath,
     logLevel: parseLogLevel(env.LOG_LEVEL),
-    ilink: {
-      baseUrl: ilinkBaseUrl,
-      getUpdatesPath: env.ILINK_GET_UPDATES_PATH || "/api/getUpdates",
-      sendMessagePath: env.ILINK_SEND_MESSAGE_PATH || "/api/sendMessage",
-      requestTimeoutMs: parsePositiveInt(env.ILINK_REQUEST_TIMEOUT_MS, 65_000),
-      ...(authToken ? { authToken } : {}),
-      ...(uin ? { uin } : {})
+    weixin: {
+      baseUrl: weixinBaseUrl,
+      requestTimeoutMs: parsePositiveInt(env.WEIXIN_REQUEST_TIMEOUT_MS, 65_000),
+      ...(botToken ? { botToken } : {}),
+      ...(botId ? { botId } : {}),
+      ...(userId ? { userId } : {}),
+      ...(routeTag ? { routeTag } : {})
+    },
+    login: {
+      pollIntervalMs: parsePositiveInt(env.LOGIN_POLL_INTERVAL_MS, 2_000),
+      qrOutputPath: env.QR_OUTPUT_PATH || "/tmp/kos-qr.png"
     },
     poller: {
       minBackoffMs: parsePositiveInt(env.POLLER_MIN_BACKOFF_MS, 1_000),

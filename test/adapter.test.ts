@@ -1,45 +1,88 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeWechatTextMessage } from "../src/adapter/wechat-message.js";
+import type { InboundMsg } from "../src/transport/ilink-types.js";
 
-test("normalizes nested text message", () => {
-  const message = normalizeWechatTextMessage({
-    message: {
-      msgId: "m1",
-      fromUserId: "wechat-user-id-1",
-      chatId: "wechat-user-id-1",
-      content: "k test",
-      createTime: 1781002801,
-      contextToken: "ctx-1",
-      msgType: "text"
-    }
-  });
+test("normalizes real iLink text message", () => {
+  const msg: InboundMsg = {
+    fromUserId: "user123@im.wechat",
+    toUserId: "bot456@im.bot",
+    messageType: 1,
+    messageState: 2,
+    contextToken: "ctx-abc-123",
+    itemList: [
+      {
+        type: 1,
+        textItem: { text: "k hello world" }
+      }
+    ],
+    raw: {}
+  };
 
-  assert.equal(message?.messageId, "m1");
-  assert.equal(message?.senderId, "wechat-user-id-1");
-  assert.equal(message?.chatId, "wechat-user-id-1");
-  assert.equal(message?.text, "k test");
-  assert.equal(message?.contextToken, "ctx-1");
-  assert.equal(message?.isGroupChat, false);
+  const result = normalizeWechatTextMessage(msg);
+
+  assert.equal(result?.senderId, "user123@im.wechat");
+  assert.equal(result?.chatId, "bot456@im.bot");
+  assert.equal(result?.text, "k hello world");
+  assert.equal(result?.contextToken, "ctx-abc-123");
+  assert.equal(result?.isGroupChat, false);
 });
 
-test("detects obvious group chat marker", () => {
-  const message = normalizeWechatTextMessage({
-    fromUserId: "wechat-user-id-1",
-    roomId: "group-chatroom",
-    content: "k test"
-  });
+test("detects group chat via @im.room suffix", () => {
+  const msg: InboundMsg = {
+    fromUserId: "user123@im.wechat",
+    toUserId: "room123@im.room",
+    messageType: 1,
+    messageState: 2,
+    itemList: [{ type: 1, textItem: { text: "k test" } }],
+    raw: {}
+  };
 
-  assert.equal(message?.isGroupChat, true);
+  const result = normalizeWechatTextMessage(msg);
+
+  assert.equal(result?.isGroupChat, true);
 });
 
-test("ignores non-text messages", () => {
-  assert.equal(
-    normalizeWechatTextMessage({
-      fromUserId: "wechat-user-id-1",
-      content: "k test",
-      type: "image"
-    }),
-    null
-  );
+test("ignores non-text messages (message_type != 1)", () => {
+  const msg: InboundMsg = {
+    fromUserId: "user123@im.wechat",
+    toUserId: "bot456@im.bot",
+    messageType: 2, // image or other
+    messageState: 2,
+    itemList: [{ type: 1, textItem: { text: "k test" } }],
+    raw: {}
+  };
+
+  assert.equal(normalizeWechatTextMessage(msg), null);
+});
+
+test("ignores messages with empty text", () => {
+  const msg: InboundMsg = {
+    fromUserId: "user123@im.wechat",
+    toUserId: "bot456@im.bot",
+    messageType: 1,
+    messageState: 2,
+    itemList: [],
+    raw: {}
+  };
+
+  assert.equal(normalizeWechatTextMessage(msg), null);
+});
+
+test("concatenates multiple text items", () => {
+  const msg: InboundMsg = {
+    fromUserId: "user123@im.wechat",
+    toUserId: "bot456@im.bot",
+    messageType: 1,
+    messageState: 2,
+    itemList: [
+      { type: 1, textItem: { text: "line one" } },
+      { type: 1, textItem: { text: "line two" } }
+    ],
+    raw: {}
+  };
+
+  const result = normalizeWechatTextMessage(msg);
+
+  assert.equal(result?.text, "line one\nline two");
 });

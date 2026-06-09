@@ -7,10 +7,8 @@ export function formatMarkdownLogEntry(entry: CaptureLogEntry, timeZone: string)
 }
 
 export const HELP_TEXT = [
-  "\u53ef\u7528\u547d\u4ee4\uff1a",
-  "k \u5185\u5bb9   \u8bb0\u5f55\u5230 log.md",
-  "\u8bb0 \u5185\u5bb9  \u8bb0\u5f55\u5230 log.md",
-  "help    \u67e5\u770b\u5e2e\u52a9"
+  "\u53d1\u9001\u4efb\u4f55\u6d88\u606f\u5373\u53ef\u8bb0\u5f55\u5230 log.md",
+  "\u53d1\u9001 help \u67e5\u770b\u6b64\u5e2e\u52a9"
 ].join("\n");
 
 export const CAPTURED_REPLY = "\u5df2\u8bb0\u5f55\u3002";

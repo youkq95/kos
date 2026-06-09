@@ -20,7 +20,7 @@ export async function handleIncomingText(
   }
 
   if (!deps.allowedSenders.has(msg.senderId)) {
-    deps.logger?.warn("ignored non-whitelisted sender", { senderId: msg.senderId });
+    deps.logger?.info("ignored non-whitelisted sender — add to ALLOWED_SENDERS to enable", { senderId: msg.senderId });
     return { action: "ignore" };
   }
 
