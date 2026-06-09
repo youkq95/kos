@@ -1,0 +1,22 @@
+[Unit]
+Description=WeChat Brain Capture daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wechat-brain
+Group=wechat-brain
+WorkingDirectory=/opt/kos
+EnvironmentFile=/etc/wechat-brain-capture.env
+ExecStart=/usr/bin/node /opt/kos/dist/src/index.js
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/wechat-brain-capture /home/your-user/brain
+
+[Install]
+WantedBy=multi-user.target
